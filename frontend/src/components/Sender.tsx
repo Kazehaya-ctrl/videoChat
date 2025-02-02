@@ -5,6 +5,8 @@ import io, { Socket } from 'socket.io-client'
 export default function Sender() {
 
     const [socket, setSocket] = useState<Socket | null>(null)
+    const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null)
+
     useEffect(() => {
         const socket = io('http://localhost:3000')
         setSocket(socket)
@@ -16,6 +18,9 @@ export default function Sender() {
         return () => {
             socket.off('connect')
             socket.off('connection-type')
+            socket.off('answer')
+            socket.off('ice-candidate')
+            peerConnection?.close()
         }
     }, [])
 
@@ -25,18 +30,37 @@ export default function Sender() {
             return
         }
 
-        const pc = new RTCPeerConnection()
-        const offer = await pc.createOffer()
-        await pc.setLocalDescription(offer)
-        socket.emit('offer', offer)
-
-        socket.on('answer', (answer: RTCSessionDescriptionInit) => {
-            pc.setRemoteDescription(answer)
+        const pc = new RTCPeerConnection({
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' }
+            ]
         })
+        setPeerConnection(pc)
+
+        pc.oniceconnectionstatechange = () => {
+            console.log('ICE Connection State:', pc.iceConnectionState)
+        }
+
+        pc.onconnectionstatechange = () => {
+            console.log('Connection State:', pc.connectionState)
+        }
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit('ice-candidate', {
+                    candidate: event.candidate,
+                    type: 'sender'
+                })
+            }
+        }
 
         const stream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: true
+        })
+
+        stream.getTracks().forEach(track => {
+            pc.addTrack(track, stream)
         })
 
         const video = document.getElementById('video') as HTMLVideoElement
@@ -44,8 +68,26 @@ export default function Sender() {
             video.srcObject = stream
             video.play()
         }
-        pc.addTrack(stream.getTracks()[0], stream)
 
+        const offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+        socket.emit('offer', offer)
+
+        socket.on('answer', async (answer: RTCSessionDescriptionInit) => {
+            if (!pc.currentRemoteDescription) {
+                await pc.setRemoteDescription(answer)
+            }
+        })
+
+        socket.on('ice-candidate', async (data: { candidate: RTCIceCandidate, type: string }) => {
+            if (data.type === 'receiver') {
+                try {
+                    await pc.addIceCandidate(new RTCIceCandidate(data.candidate))
+                } catch (e) {
+                    console.error('Error adding received ice candidate', e)
+                }
+            }
+        })
     }
 
 

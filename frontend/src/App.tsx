@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import Sender from './components/Sender'
 import Receiver from './components/Reciever'

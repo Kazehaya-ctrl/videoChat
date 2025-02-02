@@ -24,13 +24,20 @@ const io = new Server(server, {
 
 io.on('connection', (socket) => {
     console.log(`Connection established with ${socket.id}`)
+
     socket.on('connection-type', (type: string) => {
         if (type === 'sender') {
+            if (senderSocket) {
+                senderSocket.disconnect()
+            }
             senderSocket = socket
             console.log('Sender connected')
-        } else if (type === 'reciever') {
+        } else if (type === 'receiver') {
+            if (recieverSocket) {
+                recieverSocket.disconnect()
+            }
             recieverSocket = socket
-            console.log('Reciever connected')
+            console.log('Receiver connected')
         }
     })
 
@@ -43,6 +50,33 @@ io.on('connection', (socket) => {
     socket.on('answer', (answer: RTCSessionDescriptionInit) => {
         if (senderSocket) {
             senderSocket.emit('answer', answer)
+        }
+    })
+
+    socket.on('ice-candidate', ({ candidate, type }: { candidate: RTCIceCandidate, type: string }) => {
+        if (type === 'sender') {
+            if (recieverSocket) {
+                recieverSocket.emit('ice-candidate', { candidate, type: 'sender' })
+            }
+        } else if (type === 'receiver') {
+            if (senderSocket) {
+                senderSocket.emit('ice-candidate', { candidate, type: 'receiver' })
+            }
+        }
+    })
+
+    socket.on('disconnect', () => {
+        console.log(`Connection disconnected with ${socket.id}`)
+        if (socket === senderSocket) {
+            senderSocket = null
+            if (recieverSocket) {
+                recieverSocket.emit('peer-disconnected')
+            }
+        } else if (socket === recieverSocket) {
+            recieverSocket = null
+            if (senderSocket) {
+                senderSocket.emit('peer-disconnected')
+            }
         }
     })
 })
