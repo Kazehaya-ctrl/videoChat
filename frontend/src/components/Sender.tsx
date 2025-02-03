@@ -16,10 +16,6 @@ export default function Sender() {
         })
 
         return () => {
-            socket.off('connect')
-            socket.off('connection-type')
-            socket.off('answer')
-            socket.off('ice-candidate')
             peerConnection?.close()
         }
     }, [])
@@ -47,10 +43,13 @@ export default function Sender() {
 
         pc.onicecandidate = (event) => {
             if (event.candidate) {
+                console.log("Sender ICE candidate:", event.candidate);
                 socket.emit('ice-candidate', {
                     candidate: event.candidate,
                     type: 'sender'
-                })
+                });
+            } else {
+                console.log("Sender ICE candidate gathering completed");
             }
         }
 
@@ -59,9 +58,7 @@ export default function Sender() {
             audio: true
         })
 
-        stream.getTracks().forEach(track => {
-            pc.addTrack(track, stream)
-        })
+        pc.addTrack(stream.getTracks()[0], stream)
 
         const video = document.getElementById('video') as HTMLVideoElement
         if (video) {
@@ -79,12 +76,13 @@ export default function Sender() {
             }
         })
 
-        socket.on('ice-candidate', async (data: { candidate: RTCIceCandidate, type: string }) => {
+        socket.on('ice-candidate', async (data: { candidate: RTCIceCandidateInit, type: string }) => {
             if (data.type === 'receiver') {
                 try {
-                    await pc.addIceCandidate(new RTCIceCandidate(data.candidate))
+                    console.log("Sender received ICE candidate:", data.candidate);
+                    await pc.addIceCandidate(data.candidate);
                 } catch (e) {
-                    console.error('Error adding received ice candidate', e)
+                    console.error('Error adding received ICE candidate', e);
                 }
             }
         })

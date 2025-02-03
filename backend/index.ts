@@ -53,7 +53,7 @@ io.on('connection', (socket) => {
         }
     })
 
-    socket.on('ice-candidate', ({ candidate, type }: { candidate: RTCIceCandidate, type: string }) => {
+    socket.on('ice-candidate', ({ candidate, type }: { candidate: any, type: string }) => {
         if (type === 'sender') {
             if (recieverSocket) {
                 recieverSocket.emit('ice-candidate', { candidate, type: 'sender' })

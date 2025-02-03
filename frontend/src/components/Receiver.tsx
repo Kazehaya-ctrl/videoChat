@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import io, { Socket } from 'socket.io-client'
 
-const Receiver: React.FC = () => {
+export default function Receiver() {
     const [socket, setSocket] = useState<Socket | null>(null)
     const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null)
 
@@ -16,10 +16,6 @@ const Receiver: React.FC = () => {
         handleOffer()
 
         return () => {
-            socket.off('connect')
-            socket.off('connection-type')
-            socket.off('offer')
-            socket.off('ice-candidate')
             peerConnection?.close()
         }
     }, [])
@@ -42,10 +38,13 @@ const Receiver: React.FC = () => {
 
         pc.onicecandidate = (event) => {
             if (event.candidate) {
+                console.log("Receiver ICE candidate:", event.candidate);
                 socket?.emit('ice-candidate', {
                     candidate: event.candidate,
                     type: 'receiver'
-                })
+                });
+            } else {
+                console.log("Receiver ICE candidate gathering completed");
             }
         }
 
@@ -61,29 +60,31 @@ const Receiver: React.FC = () => {
             }
         })
 
-        socket?.on('ice-candidate', async (data: { candidate: RTCIceCandidate, type: string }) => {
+        socket?.on('ice-candidate', async (data: { candidate: RTCIceCandidateInit, type: string }) => {
             if (data.type === 'sender') {
                 try {
-                    await pc.addIceCandidate(new RTCIceCandidate(data.candidate))
+                    console.log("Receiver received ICE candidate:", data.candidate);
+                    await pc.addIceCandidate(data.candidate);
                 } catch (e) {
-                    console.error('Error adding received ice candidate', e)
+                    console.error('Error adding received ICE candidate', e);
                 }
             }
         })
 
         pc.ontrack = (event) => {
-            const video = document.getElementById('video') as HTMLVideoElement
-            if (video && event.streams[0]) {
-                video.srcObject = event.streams[0]
+            const videoStream = document.querySelector('#video') as HTMLVideoElement
+            if (!videoStream.srcObject) {
+                videoStream.srcObject = new MediaStream()
+                videoStream.srcObject.addTrack(event.track)
+                videoStream.play()
             }
         }
     }
 
     return (
         <div>
+            <h1>Receiver</h1>
             <video id="video" autoPlay playsInline></video>
         </div>
     )
 }
-
-export default Receiver
