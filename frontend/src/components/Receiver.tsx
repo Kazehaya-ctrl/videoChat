@@ -23,6 +23,7 @@ export default function Receiver() {
             const answer = await peerConnection2.createAnswer()
             await peerConnection2.setLocalDescription(answer)
             connection.emit('answer', answer)
+            console.log('answer set')
         })
 
         peerConnection2.onicecandidate = (event) => {
@@ -34,18 +35,23 @@ export default function Receiver() {
         })
 
         peerConnection2.ontrack = (event) => {
-            const stream = new MediaStream([event.track])
-            videoRef.current!.srcObject = stream
-            videoRef.current!.play()
+            if (videoRef.current) {
+                if (!videoRef.current.srcObject) {
+                    videoRef.current.srcObject = new MediaStream()
+                }
+                event.streams[0].getTracks().forEach(track => {
+                    (videoRef.current!.srcObject as MediaStream).addTrack(track)
+                })
+            }
         }
 
-
         return () => {
-            socket?.emit('disconnect')
+            socket?.disconnect()
+            if (peerConnection2) {
+                peerConnection2.close()
+            }
         }
     }, [])
 
-
-
-    return (<div><h1>Receiver</h1><video ref={videoRef} autoPlay ></video></div>)
+    return (<div><h1>Receiver</h1><video id='vdo' ref={videoRef} autoPlay playsInline ></video></div>)
 }

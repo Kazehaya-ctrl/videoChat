@@ -26,11 +26,6 @@ export default function Sender() {
 
         console.log('peerConnection formed')
 
-        peerConnection.onnegotiationneeded = async () => {
-            const offer = await peerConnection.createOffer()
-            await peerConnection.setLocalDescription(offer)
-            socket?.emit('offer', offer)
-        }
 
         peerConnection.onicecandidate = (event) => {
             socket?.emit('icecandidate', event.candidate)
@@ -49,9 +44,18 @@ export default function Sender() {
             audio: true
         })
 
+        if (videoRef.current) {
+            videoRef.current.srcObject = stream
+        }
+        stream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, stream)
+        })
 
-        peerConnection.addTrack(stream.getTracks()[0])
-
+        peerConnection.onnegotiationneeded = async () => {
+            const offer = await peerConnection.createOffer()
+            await peerConnection.setLocalDescription(offer)
+            socket?.emit('offer', offer)
+        }
     }
 
 

@@ -31,35 +31,35 @@ io.on('connection', (socket) => {
             }
             senderSocket = socket
             console.log('Sender Connection established')
+
+            socket.on('icecandidate', (candidate) => {
+                receiverSocket?.emit('icecandidate', candidate)
+            })
+
+            socket.on('offer', (offer) => {
+                receiverSocket?.emit('offer', offer)
+            })
+
         } else if (type === 'receiver') {
             if (receiverSocket) {
                 receiverSocket.disconnect()
             }
             receiverSocket = socket
             console.log('Receiver socket established')
+
+            socket.on('icecandidate', (candidate) => {
+                senderSocket?.emit('icecandidate', candidate)
+            })
+
+            socket.on('answer', (answer) => {
+                senderSocket?.emit('answer', answer)
+            })
         }
     })
 
-    senderSocket?.on('icecandidate', (candidate) => {
-        receiverSocket?.emit('icecandidate', candidate)
-    })
-
-    receiverSocket?.on('icecandidate', (candidate) => {
-        senderSocket?.emit('icecandidate', candidate)
-    })
-
-    senderSocket?.on('offer', (offer) => {
-        receiverSocket?.emit('offer', offer)
-    })
-
-    receiverSocket?.on('answer', (answer) => {
-        senderSocket?.emit('answer', answer)
-    })
-
-
     socket.on('disconnect', () => {
-        socket.disconnect()
+        if (socket === senderSocket) senderSocket = null
+        if (socket === receiverSocket) receiverSocket = null
         console.log(`Disconnected ${socket.id}`)
     })
-
 })
